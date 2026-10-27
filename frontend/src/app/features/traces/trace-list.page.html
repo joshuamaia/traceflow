@@ -1,0 +1,67 @@
+<div class="tf-page">
+  <div class="tf-page-head">
+    <div>
+      <h1>Trace Explorer</h1>
+      <p>Requests reconstructed from correlationId / traceId. Open a trace to see its service graph, waterfall and timeline.</p>
+    </div>
+    <div class="tf-page-actions">
+      <button pButton type="button" size="small" severity="secondary" [outlined]="true" [disabled]="!rows().length"
+              (click)="exportPage()"><i class="pi pi-download"></i> Export JSON</button>
+    </div>
+  </div>
+
+  <form class="tf-panel tf-filters" [formGroup]="form" (submit)="$event.preventDefault()">
+    <input pInputText class="grow" formControlName="q" placeholder="correlationId, traceId, operation or service…"
+           aria-label="Search traces" type="search" />
+    <p-select formControlName="status" [options]="statusOptions" optionLabel="label" optionValue="value"
+              aria-label="Status filter" size="small" />
+    <p-select formControlName="sort" [options]="sortOptions" optionLabel="label" optionValue="value"
+              aria-label="Sort order" size="small" />
+    <button pButton type="button" size="small" severity="secondary" [text]="true" (click)="clear()">
+      <i class="pi pi-filter-slash"></i> Clear
+    </button>
+  </form>
+
+  <div class="tf-panel">
+    @if (error()) {
+      <tf-empty-state icon="pi pi-exclamation-circle" title="Traces could not be loaded" [message]="error()">
+        <button pButton type="button" size="small" (click)="traces.reload()">Retry</button>
+      </tf-empty-state>
+    } @else if (traces.isLoading() && !rows().length) {
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) { <p-skeleton height="2.4rem" styleClass="mt-2" /> }
+    } @else if (!rows().length) {
+      <tf-empty-state icon="pi pi-sitemap" title="No traces found"
+        message="Adjust the filters, switch the data scope in the header, run a demo scenario or import logs." />
+    } @else {
+      <div class="tf-table-wrap">
+        <table class="tf-table" aria-label="Traces">
+          <thead>
+            <tr>
+              <th>Status</th><th>Operation</th><th>CorrelationId / TraceId</th><th>Services</th>
+              <th class="num">Duration</th><th class="num">Events</th><th class="num">Errors</th><th>Started</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of rows(); track t.id) {
+              <tr class="clickable" tabindex="0" (click)="open(t.id)" (keydown.enter)="open(t.id)">
+                <td><tf-status [status]="t.status" [httpStatus]="t.httpStatus" /></td>
+                <td><div class="op">{{ t.rootOperation ?? '—' }}</div><div class="tf-muted">{{ t.rootService }}</div></td>
+                <td>
+                  <div class="ids tf-mono">{{ t.correlationId ?? '—' }} @if (t.correlationId) { <tf-copy [value]="t.correlationId" label="correlationId" /> }</div>
+                  <div class="ids tf-mono tf-muted" [pTooltip]="t.traceId ?? ''">{{ t.traceId | shortId }} @if (t.traceId) { <tf-copy [value]="t.traceId" label="traceId" /> }</div>
+                </td>
+                <td><div class="services">@for (s of t.services; track s) { <span class="svc">{{ s }}</span> }</div></td>
+                <td class="num">{{ t.durationMs | duration }}<div class="kind">{{ t.durationKind.toLowerCase() }}</div></td>
+                <td class="num">{{ t.eventCount }}</td>
+                <td class="num">{{ t.errorCount }}</td>
+                <td class="tf-mono">{{ t.startedAt | ts }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p-paginator [first]="page() * size()" [rows]="size()" [totalRecords]="total()" [rowsPerPageOptions]="[20, 50, 100]"
+                   (onPageChange)="onPage($event)" />
+    }
+  </div>
+</div>

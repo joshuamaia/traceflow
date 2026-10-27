@@ -1,0 +1,14 @@
+2026-10-27T10:20:00.100Z  INFO 4242 --- [order-service] [nio-8080-exec-1] [4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7] c.a.order.OrderController                : Received POST /orders
+2026-10-27T10:20:00.112Z DEBUG 4242 --- [order-service] [nio-8080-exec-1] [4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7] c.a.order.OrderValidator                 : Order validated total=149.90
+2026-10-27T10:20:00.140Z  INFO 4242 --- [order-service] [nio-8080-exec-1] [4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7] c.a.order.InventoryClient                : Calling inventory-service for 3 items
+2026-10-27T10:20:00.150Z  INFO 5151 --- [inventory-service] [nio-8082-exec-7] [4bf92f3577b34da6a3ce929d0e0e4736-a3ce929d0e0e4736] c.a.inventory.StockController            : Reserving 3 items
+2026-10-27T10:20:00.300Z  INFO 5151 --- [inventory-service] [nio-8082-exec-7] [4bf92f3577b34da6a3ce929d0e0e4736-a3ce929d0e0e4736] c.a.inventory.StockController            : SKU-881 stock=0, reservation refused
+2026-10-27T10:20:00.310Z  WARN 4242 --- [order-service] [nio-8080-exec-1] [4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7] c.a.order.InventoryClient                : Slow inventory response took 165 ms
+2026-10-27T10:20:00.330Z ERROR 4242 --- [order-service] [nio-8080-exec-1] [4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7] c.a.order.OrderController                : Order rejected
+java.lang.IllegalStateException: Item SKU-881 out of stock
+	at com.acme.order.InventoryClient.reserve(InventoryClient.java:73)
+	at com.acme.order.OrderService.place(OrderService.java:51)
+	at com.acme.order.OrderController.create(OrderController.java:30)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:258)
+	... 64 common frames omitted

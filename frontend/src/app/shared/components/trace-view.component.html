@@ -1,0 +1,187 @@
+@let d = detail();
+@let t = d.trace;
+<section class="summary tf-panel">
+  <div class="title-row">
+    <div class="title">
+      <h2>{{ t.rootOperation ?? 'Trace' }}</h2>
+      <span class="root">{{ t.rootService ?? 'unknown service' }}</span>
+    </div>
+    <tf-status [status]="t.status" [httpStatus]="t.httpStatus" />
+    <button pButton type="button" size="small" severity="secondary" [outlined]="true" (click)="exportJson()"><i class="pi pi-download"></i> Export JSON</button>
+  </div>
+  <dl class="ids">
+    <div>
+      <dt>CorrelationId</dt>
+      <dd class="mono">{{ t.correlationId ?? '—' }} @if (t.correlationId) { <tf-copy [value]="t.correlationId" label="correlationId" /> }</dd>
+    </div>
+    <div>
+      <dt>TraceId</dt>
+      <dd class="mono">{{ t.traceId ?? '—' }} @if (t.traceId) { <tf-copy [value]="t.traceId" label="traceId" /> }</dd>
+    </div>
+    <div>
+      <dt>Duration</dt>
+      <dd>
+        {{ t.durationMs | duration }}
+        <span class="kind" [pTooltip]="t.durationKind === 'REPORTED' ? 'Logged by the application (root span durationMs)' :
+          t.durationKind === 'OBSERVED' ? 'Distance between first and last log timestamp' : 'Not enough timestamps'">
+          {{ t.durationKind.toLowerCase() }}</span>
+      </dd>
+    </div>
+    <div><dt>Started</dt><dd class="mono">{{ t.startedAt | ts }}</dd></div>
+    <div><dt>Events</dt><dd>{{ t.eventCount }} · <span class="err">{{ t.errorCount }} errors</span> · {{ t.warnCount }} warnings</dd></div>
+    <div><dt>Services</dt><dd>{{ t.services.length }}</dd></div>
+  </dl>
+  @if (d.errorOrigin) {
+    <div class="origin" role="status">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      <span>Probable error origin: <strong>{{ d.errorOrigin.service }}</strong> — {{ d.errorOrigin.reason }}</span>
+    </div>
+  }
+</section>
+
+<section class="graph-row">
+  <div class="tf-panel graph">
+    <header class="panel-head">
+      <h3>Service graph</h3>
+      <span class="muted">{{ d.relationships.confirmed }} confirmed · {{ d.relationships.inferred }} inferred relations</span>
+    </header>
+    @if (d.relationships.timelineOnly) {
+      <div class="notice">
+        <i class="pi pi-info-circle" aria-hidden="true"></i>
+        No call relationships could be proven from these logs. Services are shown without connections; use the
+        timeline to follow the events.
+      </div>
+    }
+    <tf-service-graph [nodes]="d.nodes" [edges]="d.edges" [dark]="dark()" [originService]="originService()"
+                      [selected]="selectedService()" [height]="compact() ? 280 : 360"
+                      (nodeSelected)="selectService($event)" />
+  </div>
+  <aside class="tf-panel node-panel" aria-live="polite">
+    @if (selectedNode(); as n) {
+      <header class="panel-head">
+        <h3><span class="svc-dot" [style.background]="serviceColor()(n.id)"></span>{{ n.name }}</h3>
+        <button type="button" class="tf-icon-btn" aria-label="Clear selection" (click)="selectService(null)"><i class="pi pi-times"></i></button>
+      </header>
+      <dl class="kv">
+        <dt>Type</dt><dd>{{ n.type.toLowerCase() }}{{ n.virtual ? ' (declared peer, no own logs)' : '' }}</dd>
+        <dt>Status</dt><dd><tf-status [status]="n.status" [httpStatus]="n.httpStatus" /></dd>
+        <dt>Events</dt><dd>{{ n.eventCount }} · {{ n.errorCount }} errors · {{ n.warnCount }} warnings</dd>
+        <dt>First seen</dt><dd class="mono">{{ n.firstSeen | ts: false }}</dd>
+        <dt>Last seen</dt><dd class="mono">{{ n.lastSeen | ts: false }}</dd>
+      </dl>
+      @if (n.operations.length) {
+        <h4>Operations</h4>
+        <ul class="ops">@for (op of n.operations; track op) { <li>{{ op }}</li> }</ul>
+      }
+      @if (selectedNodeEdges().length) {
+        <h4>Relations</h4>
+        <ul class="rels">
+          @for (e of selectedNodeEdges(); track e.id) {
+            <li>
+              <span>{{ e.source }} → {{ e.target }}</span>
+              <span class="tag" [class.inferred]="e.relation === 'INFERRED'">{{ e.relation.toLowerCase() }}</span>
+              <span class="tag">{{ e.mode.toLowerCase() }}</span>
+              <small>{{ e.evidence }}</small>
+            </li>
+          }
+        </ul>
+      }
+    } @else {
+      <div class="hint">
+        <i class="pi pi-mouse" aria-hidden="true"></i>
+        <p>Select a service in the graph or in the waterfall to see its details and filter the timeline.</p>
+        @if (errorEvents().length) {
+          <h4>Errors in this trace</h4>
+          <ul class="errs">
+            @for (e of errorEvents(); track e.id) {
+              <li (click)="selectEvent(e)" tabindex="0" (keydown.enter)="selectEvent(e)">
+                <strong>{{ e.service }}</strong> {{ e.message }}
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </aside>
+</section>
+
+<section class="tf-panel">
+  <p-tabs [value]="activeTab()" (valueChange)="activeTab.set($event)">
+    <p-tablist>
+      <p-tab value="waterfall"><i class="pi pi-align-left"></i> Waterfall</p-tab>
+      <p-tab value="timeline"><i class="pi pi-list"></i> Timeline ({{ d.timeline.length }})</p-tab>
+      <p-tab value="evidence"><i class="pi pi-sitemap"></i> Technical details</p-tab>
+    </p-tablist>
+    <p-tabpanels>
+      <p-tabpanel value="waterfall">
+        <tf-waterfall [spans]="d.spans" [windows]="d.serviceWindows" [basis]="d.timingBasis"
+                      [serviceColor]="serviceColor()" [selectedService]="selectedService()"
+                      (spanSelected)="selectSpan($event)" />
+      </p-tabpanel>
+      <p-tabpanel value="timeline">
+        @if (selectedService()) {
+          <div class="filter-note">Showing events of <strong>{{ selectedService() }}</strong>
+            <button type="button" class="link" (click)="selectService(null)">show all</button></div>
+        }
+        <div class="timeline-grid" [class.with-detail]="selectedEvent()">
+          <tf-event-timeline [events]="d.timeline" [serviceFilter]="selectedService()" [serviceColor]="serviceColor()"
+                             [selectedEventId]="selectedEvent()?.id ?? null" (eventSelected)="selectEvent($event)" />
+          @if (selectedEvent(); as ev) {
+            <aside class="event-detail">
+              <header class="panel-head">
+                <h3><tf-level [level]="ev.level" /> Event</h3>
+                <button type="button" class="tf-icon-btn" aria-label="Close event" (click)="selectedEvent.set(null)"><i class="pi pi-times"></i></button>
+              </header>
+              <dl class="kv">
+                <dt>Timestamp</dt><dd class="mono">{{ ev.timestamp | ts }}</dd>
+                <dt>Service</dt><dd>{{ ev.service ?? '—' }}</dd>
+                <dt>Logger</dt><dd class="mono small">{{ ev.logger ?? '—' }}</dd>
+                <dt>Thread</dt><dd class="mono small">{{ ev.thread ?? '—' }}</dd>
+                <dt>Span</dt><dd class="mono small">{{ ev.spanId ?? '—' }}{{ ev.parentSpanId ? ' ← ' + ev.parentSpanId : '' }}</dd>
+                <dt>Source</dt><dd class="small">line {{ ev.lineStart }}{{ ev.lineEnd > ev.lineStart ? '–' + ev.lineEnd : '' }} · parser {{ ev.parser }}</dd>
+              </dl>
+              <p class="msg">{{ ev.message }}</p>
+              @if (attributes(ev).length) {
+                <h4>Attributes</h4>
+                <dl class="kv attrs">
+                  @for (a of attributes(ev); track a[0]) { <dt>{{ a[0] }}</dt><dd class="mono small">{{ a[1] }}</dd> }
+                </dl>
+              }
+              @if (ev.stackTrace) {
+                <tf-stack-trace [stackTrace]="ev.stackTrace" />
+                <a class="link" [routerLink]="['/errors']" [queryParams]="{ event: ev.id }">Open in Error Explorer →</a>
+              }
+              <h4>Raw</h4>
+              <pre class="tf-code small">{{ ev.raw }}</pre>
+            </aside>
+          }
+        </div>
+      </p-tabpanel>
+      <p-tabpanel value="evidence">
+        <h4>How this trace was reconstructed</h4>
+        <ul class="notes">@for (note of d.notes; track note) { <li>{{ note }}</li> }</ul>
+        @if (d.edges.length) {
+          <table class="tf-table">
+            <thead><tr><th>From</th><th>To</th><th>Relation</th><th>Mode</th><th>Calls</th><th>Errors</th><th>Avg</th><th>Evidence</th></tr></thead>
+            <tbody>
+              @for (e of d.edges; track e.id) {
+                <tr>
+                  <td>{{ e.source }}</td><td>{{ e.target }}</td>
+                  <td><span class="tag" [class.inferred]="e.relation === 'INFERRED'">{{ e.relation }}</span></td>
+                  <td>{{ e.mode }}</td><td>{{ e.calls }}</td><td>{{ e.errors }}</td>
+                  <td>{{ e.mode === 'ASYNC' && e.asyncLatencyMs !== null ? (e.asyncLatencyMs | duration) + ' latency' : (e.avgDurationMs | duration) }}</td>
+                  <td class="small">{{ e.evidence }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+        @if (d.relationships.unlinkedServices.length) {
+          <p class="muted">Unknown relations (no evidence): {{ d.relationships.unlinkedServices.join(', ') }}</p>
+        }
+        <p class="muted">Trace reference <span class="mono">{{ t.id | shortId: 12 }}</span> · analysis
+          <span class="mono">{{ t.analysisId | shortId: 12 }}</span> · source {{ t.sourceKind.toLowerCase() }}</p>
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+</section>

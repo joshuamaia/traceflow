@@ -1,0 +1,69 @@
+<p-toast position="top-right" />
+<p-confirmdialog />
+
+<div class="shell" [class.sidebar-open]="sidebarOpen()">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="brand" routerLink="/dashboard">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="28" height="28"><path d="M4 22 L12 12 L18 18 L28 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="18" cy="18" r="3" fill="currentColor"/><circle cx="28" cy="6" r="3" fill="currentColor"/></svg>
+      </span>
+      <span class="brand-text">TraceFlow<small>Log Analyzer</small></span>
+    </a>
+    <nav>
+      <ul>
+        @for (item of nav; track item.path) {
+          <li>
+            <a [routerLink]="item.path" routerLinkActive="active" [attr.aria-label]="item.label">
+              <i [class]="item.icon" aria-hidden="true"></i><span>{{ item.label }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </nav>
+    <div class="sidebar-foot">
+      @if (state.systemInfo(); as info) {
+        <span>v{{ info.version }}</span>
+        @if (info.publicMode) { <span class="pill" pTooltip="Persistent imports are disabled">public mode</span> }
+      }
+      <a href="/swagger-ui.html" target="_blank" rel="noopener">API docs</a>
+    </div>
+  </aside>
+  <button type="button" class="backdrop" aria-label="Close menu" (click)="sidebarOpen.set(false)"></button>
+
+  <div class="main">
+    <header class="header">
+      <button type="button" class="tf-icon-btn menu" aria-label="Open menu" (click)="sidebarOpen.set(!sidebarOpen())">
+        <i class="pi pi-bars"></i>
+      </button>
+      <form class="search" role="search" (submit)="$event.preventDefault(); search()">
+        <i class="pi pi-search" aria-hidden="true"></i>
+        <input type="search" name="q" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)"
+               placeholder="Search correlationId or traceId…" aria-label="Global search by correlationId or traceId" />
+      </form>
+      <div class="env" pTooltip="Dataset shown on every page" tooltipPosition="bottom">
+        <span class="env-label">Data</span>
+        <p-selectbutton [options]="scopeOptions" [ngModel]="state.scope()" (ngModelChange)="setScope($event)"
+                        optionLabel="label" optionValue="value" [allowEmpty]="false" size="small"
+                        aria-label="Environment: demo or imported data" />
+      </div>
+      <div class="processing" [class.on]="state.processing()" role="status" aria-live="polite">
+        @if (state.processing()) {
+          <i class="pi pi-spin pi-spinner" aria-hidden="true"></i><span>Processing…</span>
+        } @else {
+          <i class="pi pi-check-circle" aria-hidden="true"></i><span>Idle</span>
+        }
+      </div>
+      <button type="button" class="tf-icon-btn" (click)="state.toggleTheme()"
+              [pTooltip]="state.isDark() ? 'Switch to light theme' : 'Switch to dark theme'" tooltipPosition="bottom"
+              [attr.aria-label]="state.isDark() ? 'Switch to light theme' : 'Switch to dark theme'">
+        <i [class]="state.isDark() ? 'pi pi-sun' : 'pi pi-moon'"></i>
+      </button>
+    </header>
+    @if (state.processing()) {
+      <p-progressbar mode="indeterminate" styleClass="top-progress" />
+    }
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

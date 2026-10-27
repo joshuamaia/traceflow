@@ -1,0 +1,11 @@
+2026-10-27 10:15:30.006 INFO [order-service] [correlationId=ord-7f3a91] Creating order for customer C-1042
+2026-10-27 10:15:30.010 INFO [order-service] [correlationId=ord-7f3a91] Calling payment-service (timeout 5000 ms) Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJDLTEwNDIifQ.c2lnbmF0dXJlLXZhbHVl
+2026-10-27 10:15:35.010 ERROR [order-service] [correlationId=ord-7f3a91] Payment authorization timed out
+java.util.concurrent.TimeoutException: Did not receive a response from payment-service within 5000 ms
+	at com.acme.order.PaymentClient.authorize(PaymentClient.java:57)
+	at com.acme.order.OrderService.create(OrderService.java:88)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:897)
+	... 48 more
+2026-10-27 10:16:02.106 INFO [order-service] [correlationId=ord-9b20c4] Creating order for customer C-2210
+2026-10-27 10:16:02.110 INFO [order-service] [correlationId=ord-9b20c4] Calling payment-service (timeout 5000 ms)
+2026-10-27 10:16:02.176 INFO [order-service] [correlationId=ord-9b20c4] Order ORD-9B20C4 confirmed status=200

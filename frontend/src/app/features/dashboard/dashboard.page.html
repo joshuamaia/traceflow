@@ -1,0 +1,84 @@
+<div class="tf-page">
+  <div class="tf-page-head">
+    <div>
+      <h1>Dashboard</h1>
+      <p>Overview of the {{ state.scopeLabel().toLowerCase() }} data processed by TraceFlow.
+        @if (data()?.dataFrom) {
+          <span class="range tf-muted">Data from {{ data()!.dataFrom | ts }} to {{ data()!.dataTo | ts }}.</span>
+        }
+      </p>
+    </div>
+    <div class="tf-page-actions">
+      <button pButton type="button" severity="secondary" [outlined]="true" size="small" [disabled]="dashboard.isLoading()" (click)="dashboard.reload()"><i [class]="dashboard.isLoading() ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'"></i> Refresh</button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="tf-panel">
+      <tf-empty-state icon="pi pi-exclamation-circle" title="Dashboard unavailable" [message]="error()">
+        <button pButton type="button" size="small" (click)="dashboard.reload()">Retry</button>
+      </tf-empty-state>
+    </div>
+  } @else {
+    <section class="tf-grid cards" aria-label="Key metrics">
+      @for (card of cards(); track card.label) {
+        <tf-stat-card [label]="card.label" [value]="card.value" [icon]="card.icon" [hint]="card.hint"
+                      [accent]="card.accent" [loading]="loading()" />
+      }
+    </section>
+
+    @if (empty()) {
+      <div class="tf-panel">
+        <tf-empty-state icon="pi pi-chart-bar" title="No events in this scope yet"
+          message="Run a demo scenario or import log files to populate the dashboard.">
+          <div class="tf-page-actions">
+            <a pButton size="small" routerLink="/scenarios"><i class="pi pi-play"></i> Run demo scenarios</a>
+            <a pButton size="small" severity="secondary" routerLink="/imports"><i class="pi pi-upload"></i> Import logs</a>
+          </div>
+        </tf-empty-state>
+      </div>
+    } @else {
+      <section class="tf-grid charts-main">
+        <div class="tf-panel">
+          <h3>Events per {{ data()?.eventsOverTime?.bucketLabel ?? 'minute' }}</h3>
+          @if (loading()) { <p-skeleton height="260px" /> } @else {
+            <tf-chart [options]="eventsChart()" [empty]="!data()?.eventsOverTime?.buckets?.length"
+                      label="Events per minute, stacked by severity" emptyMessage="Events have no valid timestamps." />
+          }
+        </div>
+        <div class="tf-panel">
+          <h3>Severity distribution</h3>
+          @if (loading()) { <p-skeleton height="260px" /> } @else {
+            <tf-chart [options]="severityChart()" [empty]="!data()?.severityDistribution?.length" label="Events by severity" />
+          }
+        </div>
+      </section>
+      <section class="tf-grid three">
+        <div class="tf-panel">
+          <h3>Errors by service</h3>
+          @if (loading()) { <p-skeleton height="240px" /> } @else {
+            <tf-chart [options]="errorsByServiceChart()" [height]="240" [empty]="!data()?.errorsByService?.length"
+                      emptyTitle="No errors" emptyMessage="No error events in this scope." label="Errors by service" />
+          }
+        </div>
+        <div class="tf-panel">
+          <h3>Most frequent exceptions</h3>
+          @if (loading()) { <p-skeleton height="240px" /> } @else {
+            <tf-chart [options]="exceptionsChart()" [height]="240" [empty]="!data()?.topExceptions?.length"
+                      emptyTitle="No exceptions" emptyMessage="No events with an exception class." label="Top exceptions" />
+          }
+        </div>
+        <div class="tf-panel">
+          <h3>Request duration
+            @if (data()?.avgDurationBasis) { <span class="tf-muted range">({{ data()!.avgDurationBasis!.toLowerCase() }})</span> }
+          </h3>
+          @if (loading()) { <p-skeleton height="240px" /> } @else {
+            <tf-chart [options]="durationChart()" [height]="240" [empty]="!data()?.requestDurationHistogram?.length"
+                      emptyTitle="No durations" emptyMessage="No trace has a reported or observed duration."
+                      label="Distribution of request durations" />
+          }
+        </div>
+      </section>
+    }
+  }
+</div>

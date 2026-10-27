@@ -1,0 +1,137 @@
+<div class="tf-page">
+  <div class="tf-page-head">
+    <div>
+      <h1>Error Explorer</h1>
+      <p>Errors grouped by exception class, normalized message and first application frame. The probable origin is only
+        shown when the stack trace contains application frames.</p>
+    </div>
+    <div class="tf-page-actions">
+      <p-selectbutton [options]="viewOptions" [ngModel]="view()" (ngModelChange)="setView($event)" optionLabel="label"
+                      optionValue="value" [allowEmpty]="false" size="small" aria-label="View" />
+      <button pButton type="button" size="small" severity="secondary" [outlined]="true" (click)="exportCsv()">
+        <i class="pi pi-file-export"></i> Export CSV</button>
+    </div>
+  </div>
+
+  <form class="tf-panel tf-filters" [formGroup]="form" (submit)="$event.preventDefault()">
+    <input pInputText class="grow" formControlName="q" type="search" placeholder="Search message, exception, logger…" aria-label="Search errors" />
+    <p-select formControlName="service" [options]="serviceOptions()" optionLabel="label" optionValue="value" size="small"
+              aria-label="Service" [filter]="true" />
+    <p-select formControlName="exceptionClass" [options]="exceptionOptions()" optionLabel="label" optionValue="value" size="small"
+              aria-label="Exception class" [filter]="true" class="exc-select" />
+    <input pInputText formControlName="correlationId" placeholder="correlationId" aria-label="CorrelationId" class="cid" />
+    <p-datepicker formControlName="period" selectionMode="range" [readonlyInput]="true" placeholder="Period" size="small"
+                  [showButtonBar]="true" dateFormat="yy-mm-dd" ariaLabel="Period" />
+    <button pButton type="button" size="small" severity="secondary" [text]="true" (click)="clear()"><i class="pi pi-filter-slash"></i> Clear</button>
+  </form>
+
+  @if (fingerprint()) {
+    <div class="tf-note">Showing occurrences of one error group.
+      <button type="button" class="link" (click)="setView('groups')">Back to groups</button></div>
+  }
+
+  <section class="layout" [class.with-detail]="selectedEventId()">
+    <div class="tf-panel">
+      @if (error()) {
+        <tf-empty-state icon="pi pi-exclamation-circle" title="Errors could not be loaded" [message]="error()" />
+      } @else if (loading() && !total()) {
+        @for (i of [1, 2, 3, 4, 5]; track i) { <p-skeleton height="2.6rem" styleClass="mt-2" /> }
+      } @else if (!total()) {
+        <tf-empty-state icon="pi pi-check-circle" title="No errors found"
+          message="No error events match the filters in the selected data scope." />
+      } @else if (view() === 'groups') {
+        <div class="tf-table-wrap">
+          <table class="tf-table" aria-label="Error groups">
+            <thead><tr><th>Exception</th><th>Message</th><th class="num">Occurrences</th><th>Services</th><th>Last seen</th><th></th></tr></thead>
+            <tbody>
+              @for (g of groups.value()?.content ?? []; track g.fingerprint) {
+                <tr class="clickable" tabindex="0" [class.selected]="selectedEventId() === g.sampleEventId"
+                    (click)="selectedEventId.set(g.sampleEventId)" (keydown.enter)="selectedEventId.set(g.sampleEventId)">
+                  <td class="exc" [pTooltip]="g.exceptionClass ?? 'Error log without exception'">{{ g.exceptionClass ? (g.exceptionClass | simpleClass) : 'Error log' }}</td>
+                  <td class="msg">{{ g.sampleMessage }}</td>
+                  <td class="num"><strong>{{ g.occurrences | num }}</strong></td>
+                  <td>{{ g.services.join(', ') }}</td>
+                  <td class="tf-mono small">{{ g.lastSeen | ts }}</td>
+                  <td><button type="button" class="link" (click)="showOccurrences(g.fingerprint, $event)">occurrences →</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p-paginator [first]="page() * 20" [rows]="20" [totalRecords]="total()" (onPageChange)="onPage($event)" />
+      } @else {
+        <div class="tf-table-wrap">
+          <table class="tf-table" aria-label="Error events">
+            <thead><tr><th>Time</th><th>Service</th><th>Exception / message</th><th>CorrelationId</th></tr></thead>
+            <tbody>
+              @for (e of list.value()?.content ?? []; track e.id) {
+                <tr class="clickable" tabindex="0" [class.selected]="selectedEventId() === e.id"
+                    (click)="selectedEventId.set(e.id)" (keydown.enter)="selectedEventId.set(e.id)">
+                  <td class="tf-mono small">{{ e.timestamp | ts }}</td>
+                  <td>{{ e.service ?? '—' }}</td>
+                  <td class="msg">
+                    @if (e.exceptionClass) { <div class="exc">{{ e.exceptionClass | simpleClass }}</div> }
+                    {{ e.message }}
+                  </td>
+                  <td class="tf-mono small">{{ e.correlationId ?? '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p-paginator [first]="page() * 25" [rows]="25" [totalRecords]="total()" (onPageChange)="onPage($event)" />
+      }
+    </div>
+
+    @if (selectedEventId()) {
+      <aside class="tf-panel detail" aria-live="polite">
+        @if (detail.isLoading() && !detail.value()) {
+          <p-skeleton height="2rem" /><p-skeleton height="18rem" styleClass="mt-2" />
+        } @else if (detail.value(); as d) {
+          <header class="detail-head">
+            <tf-level [level]="d.event.level" />
+            <h2 class="tf-truncate">{{ d.event.exceptionClass ?? 'Error event' }}</h2>
+            <button type="button" class="tf-icon-btn" pTooltip="Export JSON" aria-label="Export JSON" (click)="exportDetail()"><i class="pi pi-download"></i></button>
+            <button type="button" class="tf-icon-btn" aria-label="Close" (click)="selectedEventId.set(null)"><i class="pi pi-times"></i></button>
+          </header>
+          <p class="msg">{{ d.event.exceptionMessage ?? d.event.message }}</p>
+          <dl class="kv">
+            <dt>Service</dt><dd>{{ d.event.service ?? '—' }}</dd>
+            <dt>Time</dt><dd class="tf-mono">{{ d.event.timestamp | ts }}</dd>
+            <dt>Logger</dt><dd class="tf-mono small">{{ d.event.logger ?? '—' }}</dd>
+            <dt>CorrelationId</dt><dd class="tf-mono">{{ d.event.correlationId ?? '—' }} <tf-copy [value]="d.event.correlationId" label="correlationId" /></dd>
+            <dt>TraceId</dt><dd class="tf-mono small">{{ d.event.traceId ?? '—' }} <tf-copy [value]="d.event.traceId" label="traceId" /></dd>
+            <dt>Similar</dt><dd>{{ d.similarOccurrences | num }} occurrence(s) of this error group</dd>
+          </dl>
+          @if (d.trace) {
+            <div class="trace-link">
+              <tf-status [status]="d.trace.status" [httpStatus]="d.trace.httpStatus" />
+              <span class="tf-truncate">{{ d.trace.rootOperation }}</span>
+              <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/traces', d.trace.id]"><i class="pi pi-sitemap"></i> Open trace</a>
+            </div>
+          }
+          @if (d.stackAnalysis.probableOrigin; as o) {
+            <div class="origin">
+              <h4><i class="pi pi-map-marker"></i> Probable origin</h4>
+              <div class="tf-mono">{{ o.className }}.{{ o.method }}({{ o.location }})</div>
+              <small>{{ o.evidence }}</small>
+            </div>
+          } @else if (d.stackAnalysis.note) {
+            <div class="tf-note"><i class="pi pi-info-circle"></i>{{ d.stackAnalysis.note }}</div>
+          }
+          @if (d.stackAnalysis.chain.length > 1) {
+            <h4>Exception chain</h4>
+            <ol class="chain">
+              @for (c of d.stackAnalysis.chain; track $index) {
+                <li><span class="tf-mono">{{ c.className }}</span> <span class="tf-muted">{{ c.message }}</span></li>
+              }
+            </ol>
+          }
+          @if (d.event.stackTrace) {
+            <tf-stack-trace [stackTrace]="d.event.stackTrace" [analysis]="d.stackAnalysis" />
+          }
+        }
+      </aside>
+    }
+  </section>
+</div>

@@ -1,0 +1,159 @@
+<div class="tf-page">
+  <div class="tf-page-head">
+    <div>
+      <h1>Analytics</h1>
+      <p>Metrics derived from processed events. Request durations (whole traces) and operation durations (events that
+        log an explicit duration) are reported separately; percentiles are only computed with enough samples.</p>
+    </div>
+    <div class="tf-page-actions">
+      <p-selectbutton [options]="presetOptions" [ngModel]="preset()" (ngModelChange)="setPreset($event)" optionLabel="label"
+                      optionValue="value" [allowEmpty]="false" size="small" aria-label="Period" />
+      @if (preset() === 'custom') {
+        <p-datepicker class="range" [ngModel]="customRange()" (ngModelChange)="customRange.set($event)" selectionMode="range"
+                      [readonlyInput]="true" placeholder="Select dates" size="small" dateFormat="yy-mm-dd" ariaLabel="Custom period" />
+      }
+      <button pButton type="button" size="small" severity="secondary" [outlined]="true" [disabled]="!data()?.hasData" (click)="export()">
+        <i class="pi pi-download"></i> Export JSON</button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="tf-panel"><tf-empty-state icon="pi pi-exclamation-circle" title="Analytics unavailable" [message]="error()" /></div>
+  } @else if (analytics.isLoading() && !data()) {
+    <div class="tf-grid cards">@for (i of [1, 2, 3, 4]; track i) { <p-skeleton height="96px" /> }</div>
+    <p-skeleton height="300px" />
+  } @else if (data() && !data()!.hasData) {
+    <div class="tf-panel">
+      <tf-empty-state icon="pi pi-chart-line" title="Not enough data" [message]="data()!.notes.join(' ')" />
+    </div>
+  } @else if (data(); as d) {
+    <section class="tf-grid cards">
+      @for (c of cards(); track c.label) { <tf-stat-card [label]="c.label" [value]="c.value" [hint]="c.hint" [icon]="c.icon" /> }
+    </section>
+
+    @if (d.notes.length) {
+      <div class="tf-note"><i class="pi pi-info-circle"></i><ul class="notes">@for (n of d.notes; track n) { <li>{{ n }}</li> }</ul></div>
+    }
+
+    <section class="tf-grid two">
+      <div class="tf-panel">
+        <h3>Event volume per {{ d.volume?.bucketLabel ?? 'period' }}</h3>
+        <tf-chart [options]="volumeChart()" [empty]="!d.volume?.buckets?.length" label="Event volume over time"
+                  emptyMessage="Events have no valid timestamps." />
+      </div>
+      <div class="tf-panel">
+        <h3>Error rate over time</h3>
+        <tf-chart [options]="rateChart()" [empty]="!d.volume?.buckets?.length" label="Error rate per period"
+                  emptyMessage="Events have no valid timestamps." />
+      </div>
+    </section>
+
+    <section class="tf-grid two">
+      <div class="tf-panel">
+        <h3>Services with most failures</h3>
+        @if (!d.serviceFailures.length) {
+          <tf-empty-state title="No services identified" compact />
+        } @else {
+          <div class="tf-table-wrap">
+            <table class="tf-table" aria-label="Failures by service">
+              <thead><tr><th>Service</th><th class="num">Events</th><th class="num">Errors</th><th>Error rate</th></tr></thead>
+              <tbody>
+                @for (s of d.serviceFailures; track s.service) {
+                  <tr>
+                    <td>{{ s.service }}</td>
+                    <td class="num">{{ s.events | num }}</td>
+                    <td class="num">{{ s.errors | num }}</td>
+                    <td class="rate-cell">
+                      <div class="bar" [style.width.%]="(s.errors / maxErrors()) * 100"></div>
+                      <span class="tf-muted">{{ s.errorRate | percent1 }}</span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+      <div class="tf-panel">
+        <h3>Severity distribution</h3>
+        <tf-chart [options]="severityChart()" [empty]="!d.severityDistribution.length" label="Events by severity" />
+      </div>
+    </section>
+
+    <section class="tf-panel">
+      <h3>Request duration (traces)
+        @if (d.requestDurationBasis) { <span class="tf-muted"> · basis: {{ d.requestDurationBasis.toLowerCase() }}</span> }
+      </h3>
+      @let r = d.requestDurations;
+      @if (!r.samples) {
+        <p class="tf-muted">No trace has a measurable duration in this period.</p>
+      } @else {
+        <div class="tf-table-wrap">
+          <table class="tf-table" aria-label="Request duration statistics">
+            <thead><tr><th class="num">Samples</th><th class="num">Avg</th><th class="num">Min</th><th class="num">Max</th>
+              <th class="num">P50</th><th class="num">P95</th><th class="num">P99</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="num">{{ r.samples }}</td><td class="num">{{ r.avgMs | duration }}</td>
+                <td class="num">{{ r.minMs | duration }}</td><td class="num">{{ r.maxMs | duration }}</td>
+                @for (k of ['p50Ms', 'p95Ms', 'p99Ms']; track k) {
+                  <td class="num">
+                    @if (describe(r, $any(k)); as why) { <span class="insufficient" [pTooltip]="r.note ?? ''">{{ why }}</span> }
+                    @else { {{ $any(r)[k] | duration }} }
+                  </td>
+                }
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="tf-panel">
+      <h3>Operation durations (events with an explicit duration)</h3>
+      @if (!d.operationDurations.length) {
+        <p class="tf-muted">No events carry a duration field in this period.</p>
+      } @else {
+        <div class="tf-table-wrap">
+          <table class="tf-table" aria-label="Operation duration statistics">
+            <thead><tr><th>Service</th><th>Operation</th><th class="num">Samples</th><th class="num">Avg</th><th class="num">Max</th>
+              <th class="num">P50</th><th class="num">P95</th><th class="num">P99</th></tr></thead>
+            <tbody>
+              @for (o of d.operationDurations; track o.service + o.operation) {
+                <tr>
+                  <td>{{ o.service }}</td><td class="tf-mono">{{ o.operation }}</td>
+                  <td class="num">{{ o.stats.samples }}</td><td class="num">{{ o.stats.avgMs | duration }}</td><td class="num">{{ o.stats.maxMs | duration }}</td>
+                  @for (k of ['p50Ms', 'p95Ms', 'p99Ms']; track k) {
+                    <td class="num">
+                      @if (describe(o.stats, $any(k)); as why) { <span class="insufficient">{{ why }}</span> }
+                      @else { {{ $any(o.stats)[k] | duration }} }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="tf-panel">
+      <h3>Recurring exceptions</h3>
+      @if (!d.recurringExceptions.length) {
+        <p class="tf-muted">No exceptions recorded in this period.</p>
+      } @else {
+        <div class="tf-table-wrap">
+          <table class="tf-table" aria-label="Recurring exceptions">
+            <thead><tr><th>Exception</th><th class="num">Occurrences</th><th>Services</th></tr></thead>
+            <tbody>
+              @for (x of d.recurringExceptions; track x.fingerprint) {
+                <tr><td class="exc" [pTooltip]="x.exceptionClass">{{ x.exceptionClass | simpleClass }}</td>
+                  <td class="num">{{ x.occurrences | num }}</td><td>{{ x.services.join(', ') }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</div>

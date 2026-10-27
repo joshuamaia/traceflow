@@ -1,0 +1,124 @@
+<div class="tf-page">
+  <div class="tf-page-head">
+    <div>
+      <h1>Demo Scenarios</h1>
+      <p>Deterministic simulations executed by the backend. Each run writes structured logs that go through the same
+        parsing and correlation pipeline as imported files, with fresh identifiers every time.</p>
+    </div>
+  </div>
+
+  @if (catalogError()) {
+    <div class="tf-panel">
+      <tf-empty-state icon="pi pi-exclamation-circle" title="Scenarios unavailable" [message]="catalogError()">
+        <button pButton type="button" size="small" (click)="catalog.reload()">Retry</button>
+      </tf-empty-state>
+    </div>
+  } @else if (!scenarios().length) {
+    <div class="cards">@for (i of [1, 2, 3, 4, 5]; track i) { <p-skeleton height="250px" /> }</div>
+  } @else {
+    <section class="cards" aria-label="Scenarios">
+      @for (s of scenarios(); track s.key; let i = $index) {
+        @let run = lastRun(s);
+        <article class="card" [class.selected]="selected()?.key === s.key" tabindex="0"
+                 (click)="select(s.key)" (keydown.enter)="select(s.key)" [attr.data-testid]="'scenario-' + s.key">
+          <header>
+            <span class="num">{{ i + 1 }}</span>
+            <h2>{{ s.name }}</h2>
+          </header>
+          <p class="desc">{{ s.description }}</p>
+          <ol class="flow" [class.async]="isAsync(s)" aria-label="Flow">
+            @for (step of s.flow; track step; let last = $last) {
+              <li>{{ step }}</li>
+              @if (!last) { <li class="arrow" aria-hidden="true">{{ isAsync(s) ? '⇢' : '→' }}</li> }
+            }
+          </ol>
+          <p class="expected"><i class="pi pi-flag" aria-hidden="true"></i>{{ s.expectedOutcome }}</p>
+          <div class="run">
+            @if (isRunning(s.key)) {
+              <tf-status status="RUNNING" />
+            } @else if (run) {
+              <tf-status [status]="run.status" [httpStatus]="run.httpStatus" />
+              <span class="tf-mono corr">{{ run.correlationId }}</span>
+              <tf-copy [value]="run.correlationId" label="correlationId" />
+            } @else {
+              <span class="tf-muted">Not executed yet</span>
+            }
+          </div>
+          <footer>
+            <button pButton type="button" size="small" [disabled]="isRunning(s.key)" (click)="execute(s, $event)"
+                    [attr.data-testid]="'execute-' + s.key">
+              <i [class]="isRunning(s.key) ? 'pi pi-spin pi-spinner' : run ? 'pi pi-replay' : 'pi pi-play'"></i>
+              {{ run ? 'Run again' : 'Execute Scenario' }}
+            </button>
+            <span class="tf-muted runs">{{ s.totalRuns }} run{{ s.totalRuns === 1 ? '' : 's' }}</span>
+          </footer>
+        </article>
+      }
+    </section>
+
+    @if (selected(); as s) {
+      @let run = selectedRun();
+      <section class="tf-panel run-panel" aria-live="polite">
+        <header class="run-head">
+          <div>
+            <h2>{{ s.name }}</h2>
+            @if (run) {
+              <p class="tf-muted">Run {{ run.startedAt | ts }} · {{ run.outcome ?? run.failureReason }}</p>
+            }
+          </div>
+          @if (run?.traceRef) {
+            <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/traces', run!.traceRef]">
+              <i class="pi pi-external-link"></i> Open in Trace Explorer</a>
+          }
+        </header>
+        @if (!run) {
+          <tf-empty-state icon="pi pi-play-circle" title="Not executed yet"
+            message="Execute the scenario to generate its logs, trace, graph and timeline." compact>
+            <button pButton type="button" size="small" (click)="execute(s)"><i class="pi pi-play"></i> Execute Scenario</button>
+          </tf-empty-state>
+        } @else {
+          <dl class="details">
+            <div><dt>Status</dt><dd><tf-status [status]="run.status" [httpStatus]="run.httpStatus" /></dd></div>
+            <div><dt>CorrelationId</dt><dd class="tf-mono">{{ run.correlationId ?? '—' }} <tf-copy [value]="run.correlationId" label="correlationId" /></dd></div>
+            <div><dt>TraceId</dt><dd class="tf-mono">{{ run.traceId ?? '—' }} <tf-copy [value]="run.traceId" label="traceId" /></dd></div>
+            @for (d of detailEntries(run); track d.key) {
+              <div><dt>{{ d.key }}</dt><dd class="tf-mono">{{ d.value }}</dd></div>
+            }
+          </dl>
+        }
+      </section>
+
+      @if (run?.traceRef) {
+        @if (trace.hasValue() && trace.value(); as detail) {
+          <tf-trace-view [detail]="detail" [compact]="true" />
+        } @else if (trace.isLoading()) {
+          <p-skeleton height="420px" />
+        }
+      }
+
+      @if (history.hasValue() && history.value(); as h) {
+        @if (h.content.length) {
+          <section class="tf-panel">
+            <h3>Execution history</h3>
+            <div class="tf-table-wrap">
+              <table class="tf-table" aria-label="Scenario runs">
+                <thead><tr><th>Started</th><th>Status</th><th>CorrelationId</th><th>Outcome</th><th></th></tr></thead>
+                <tbody>
+                  @for (r of h.content; track r.id) {
+                    <tr>
+                      <td class="tf-mono">{{ r.startedAt | ts }}</td>
+                      <td><tf-status [status]="r.status" [httpStatus]="r.httpStatus" /></td>
+                      <td class="tf-mono">{{ r.correlationId }} <tf-copy [value]="r.correlationId" label="correlationId" /></td>
+                      <td>{{ r.outcome ?? r.failureReason }}</td>
+                      <td>@if (r.traceRef) { <a [routerLink]="['/traces', r.traceRef]">trace →</a> }</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
+      }
+    }
+  }
+</div>

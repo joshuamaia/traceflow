@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" class="tf-dark" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <title>TraceFlow</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="TraceFlow - API & Distributed Log Analyzer">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script>
+    // apply the persisted theme before first paint to avoid a flash
+    try {
+      if (localStorage.getItem('tf.theme') === 'light') {
+        document.documentElement.classList.remove('tf-dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    } catch (e) { /* storage unavailable */ }
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>

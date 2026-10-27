@@ -1,0 +1,33 @@
+[
+  {
+    "timestamp": "2026-10-27T11:00:00.000Z",
+    "level": "INFO",
+    "service": "notification-service",
+    "traceId": "9f2c6a1b7d4e4f0a",
+    "spanId": "b1",
+    "spanKind": "CONSUMER",
+    "messageId": "msg-001",
+    "message": "Received order.created message"
+  },
+  {
+    "timestamp": "2026-10-27T11:00:00.042Z",
+    "level": "INFO",
+    "service": "notification-service",
+    "traceId": "9f2c6a1b7d4e4f0a",
+    "spanId": "b1",
+    "message": "E-mail queued for customer C-1042",
+    "durationMs": 42
+  },
+  {
+    "timestamp": 1793098800500,
+    "level": 50,
+    "service": "notification-service",
+    "traceId": "9f2c6a1b7d4e4f0b",
+    "message": "SMTP relay unavailable",
+    "exception": {
+      "class": "jakarta.mail.MessagingException",
+      "message": "Could not connect to SMTP host",
+      "stacktrace": "jakarta.mail.MessagingException: Could not connect to SMTP host\n\tat com.acme.notify.MailSender.send(MailSender.java:33)"
+    }
+  }
+]

@@ -1,0 +1,61 @@
+.meta { font-size: .8rem; }
+.paste { display: flex; flex-direction: column; gap: .6rem; }
+.paste textarea { width: 100%; font-size: .78rem; resize: vertical; }
+.summary { display: flex; flex-wrap: wrap; gap: 1rem; font-size: .82rem; color: var(--tf-text-secondary); }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1rem; }
+@media (max-width: 1100px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.pane-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+.pane-head h3 { margin: 0; font-size: .95rem; }
+.spacer { flex: 1; }
+
+.code { height: 560px; overflow: auto; font-family: var(--tf-mono); font-size: .76rem; line-height: 1.6;
+  background: var(--tf-code-bg); border: 1px solid var(--tf-border); border-radius: 8px; padding: .4rem 0; }
+.line { display: flex; white-space: pre; min-width: max-content; }
+.line .ln { position: sticky; left: 0; flex: none; width: 4.2rem; padding-right: .7rem; text-align: right; color: var(--tf-text-muted);
+  background: var(--tf-code-bg); user-select: none; }
+.line .txt { padding-right: 1rem; }
+.line.hl { background: var(--tf-accent-soft); }
+.line.hl .ln { background: color-mix(in srgb, var(--tf-accent) 22%, var(--tf-code-bg)); color: var(--tf-text); }
+.line.problem .ln { box-shadow: inset 3px 0 0 var(--tf-critical); }
+.line.problem .txt { text-decoration: underline wavy color-mix(in srgb, var(--tf-critical) 60%, transparent); }
+.ts { color: var(--tf-text-muted); }
+.lv-error { color: var(--tf-critical); font-weight: 700; }
+.lv-warn { color: var(--tf-warning-text); font-weight: 700; }
+.lv-info { color: var(--tf-info); font-weight: 600; }
+.lv-debug { color: var(--tf-debug); }
+.bracket { color: var(--tf-text-secondary); }
+.key { color: var(--tf-debug); }
+.str { color: var(--tf-good-text); }
+.num { color: var(--tf-serious); }
+.kw { color: var(--tf-info); }
+.punct { color: var(--tf-text-muted); }
+.exc, .cause { color: var(--tf-critical); }
+.frame { color: var(--tf-text-muted); }
+.masked { color: var(--tf-warning-text); font-style: italic; }
+
+.events { list-style: none; margin: .6rem 0 0; padding: 0; height: 480px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.events li { padding: .45rem .55rem; border-radius: 7px; cursor: pointer; border-left: 3px solid transparent; }
+.events li:hover { background: var(--tf-hover); }
+.events li.sel { background: var(--tf-accent-soft); border-left-color: var(--tf-accent); }
+.events li.err { border-left-color: var(--tf-critical); }
+.events li.none { color: var(--tf-text-muted); cursor: default; }
+.ev-meta { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; font-size: .72rem; }
+.svc { font-weight: 600; }
+.cid { font-size: .7rem; color: var(--tf-accent); }
+.ev-meta .ts { margin-left: auto; }
+.ev-msg { font-size: .8rem; color: var(--tf-text-secondary); margin-top: .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-exc { font-size: .72rem; color: var(--tf-critical); }
+
+.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 1.25rem; }
+@media (max-width: 900px) { .detail-grid { grid-template-columns: minmax(0, 1fr); } }
+.fields { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: .3rem .7rem; margin: 0; font-size: .8rem; }
+.fields dt { color: var(--tf-text-muted); }
+.fields dd { margin: 0; word-break: break-all; display: flex; align-items: center; gap: .2rem; }
+.right h4 { margin: 0 0 .35rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--tf-text-muted); }
+.right .msg { white-space: pre-wrap; word-break: break-word; margin: 0 0 .9rem; }
+.attrs { margin-bottom: .9rem; }
+
+.problems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow: auto; }
+.problems li { display: flex; gap: .7rem; align-items: center; padding: .35rem .5rem; border-radius: 6px; cursor: pointer; font-size: .82rem; }
+.problems li:hover { background: var(--tf-hover); }

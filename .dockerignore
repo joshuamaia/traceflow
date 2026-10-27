@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/dist
+**/.angular
+**/coverage
+backend/target
+backend/data
+data
+samples
+scripts
+*.md
+!docker/certs/README.md
+.env

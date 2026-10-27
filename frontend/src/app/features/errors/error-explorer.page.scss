@@ -1,0 +1,27 @@
+.cid { width: 180px; }
+:host ::ng-deep .exc-select { max-width: 280px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.layout.with-detail { grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr); }
+@media (max-width: 1200px) { .layout.with-detail { grid-template-columns: minmax(0, 1fr); } }
+.exc { color: var(--tf-critical); font-weight: 600; white-space: nowrap; }
+.msg { min-width: 240px; max-width: 460px; word-break: break-word; }
+td { white-space: nowrap; }
+td.msg { white-space: normal; }
+.small { font-size: .75rem; }
+.link { background: none; border: 0; color: var(--tf-accent); cursor: pointer; font-size: .8rem; padding: 0; white-space: nowrap; }
+.detail { display: flex; flex-direction: column; gap: .75rem; align-self: start; position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow: auto; }
+.detail-head { display: flex; align-items: center; gap: .5rem; }
+.detail-head h2 { margin: 0; font-size: 1rem; flex: 1; min-width: 0; }
+.detail .msg { margin: 0; max-width: none; white-space: pre-wrap; }
+.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: .3rem .7rem; margin: 0; font-size: .82rem; }
+.kv dt { color: var(--tf-text-muted); }
+.kv dd { margin: 0; display: flex; align-items: center; gap: .2rem; word-break: break-all; }
+.trace-link { display: flex; align-items: center; gap: .5rem; padding: .5rem .6rem; border-radius: 8px; background: var(--tf-surface-2); font-size: .82rem; }
+.trace-link span.tf-truncate { flex: 1; min-width: 0; }
+.origin { padding: .6rem .75rem; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--tf-critical) 45%, transparent);
+  background: color-mix(in srgb, var(--tf-critical) 10%, transparent); }
+.origin h4 { margin: 0 0 .3rem; font-size: .78rem; color: var(--tf-critical); }
+.origin .tf-mono { font-size: .8rem; word-break: break-all; }
+.origin small { color: var(--tf-text-muted); }
+h4 { margin: 0; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--tf-text-muted); }
+.chain { margin: 0; padding-left: 1.2rem; font-size: .8rem; display: flex; flex-direction: column; gap: .25rem; }

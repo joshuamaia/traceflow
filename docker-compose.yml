@@ -1,0 +1,70 @@
+name: traceflow
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-traceflow}
+      POSTGRES_USER: ${POSTGRES_USER:-traceflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traceflow}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-traceflow}
+      DB_USER: ${POSTGRES_USER:-traceflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-traceflow}
+      TRACEFLOW_PUBLIC_MODE: ${TRACEFLOW_PUBLIC_MODE:-false}
+      TRACEFLOW_MAX_FILE_SIZE: ${TRACEFLOW_MAX_FILE_SIZE:-50MB}
+      TRACEFLOW_MAX_REQUEST_SIZE: ${TRACEFLOW_MAX_REQUEST_SIZE:-510MB}
+      TRACEFLOW_MAX_FILES: ${TRACEFLOW_MAX_FILES:-10}
+      TRACEFLOW_RETENTION_ENABLED: ${TRACEFLOW_RETENTION_ENABLED:-true}
+      TRACEFLOW_RETENTION_DAYS: ${TRACEFLOW_RETENTION_DAYS:-30}
+      TRACEFLOW_DEMO_SEED: ${TRACEFLOW_DEMO_SEED:-true}
+      TRACEFLOW_DEFAULT_ZONE: ${TRACEFLOW_DEFAULT_ZONE:-UTC}
+      TRACEFLOW_CORS_ORIGINS: ${TRACEFLOW_CORS_ORIGINS:-http://localhost:4200}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
+    volumes:
+      - uploads:/data/uploads
+    expose:
+      - "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  uploads:

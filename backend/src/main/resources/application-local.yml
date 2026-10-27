@@ -1,0 +1,7 @@
+# Local profile: runs without Docker or a PostgreSQL installation, using an embedded H2 file database
+# in PostgreSQL compatibility mode. Activate with: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/traceflow-h2;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=FALSE
+    username: sa
+    password: ""

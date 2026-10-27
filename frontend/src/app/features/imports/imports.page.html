@@ -1,0 +1,128 @@
+<div class="tf-page">
+  <div class="tf-page-head">
+    <div>
+      <h1>Import Logs</h1>
+      <p>Upload Spring Boot, plain text, JSON or JSON Lines logs. Files uploaded together are analyzed as one
+        distributed system: events are correlated across files by correlationId and traceId.</p>
+    </div>
+  </div>
+
+  @if (importsDisabled()) {
+    <div class="tf-note" role="status">
+      <i class="pi pi-lock" aria-hidden="true"></i>
+      <span>This deployment runs in <strong>public mode</strong>: persistent imports are disabled until authentication is
+        available. Use the <a routerLink="/analyzer">Log Analyzer paste mode</a> (nothing is stored) or the demo scenarios.</span>
+    </div>
+  } @else {
+    <section class="tf-panel upload">
+      <div class="dropzone" [class.dragging]="dragging()" [class.disabled]="busy()"
+           (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)">
+        <i class="pi pi-cloud-upload" aria-hidden="true"></i>
+        <p><strong>Drag and drop log files here</strong> or</p>
+        <label class="pick">
+          <input type="file" multiple [accept]="'.' + limits().allowedExtensions.join(',.')" (change)="onFileInput($event)"
+                 [disabled]="busy()" data-testid="file-input" />
+          <span pButton size="small" severity="secondary" [outlined]="true"><i class="pi pi-folder-open"></i> Choose files</span>
+        </label>
+        <small class="tf-muted">{{ limits().allowedExtensions.map(e => '.' + e).join(' · ') }} · up to {{ limits().maxFiles }} files ·
+          {{ limits().maxFileSizeBytes | bytes }} each · secrets (JWTs, passwords, cookies, Authorization headers) are masked before storage</small>
+      </div>
+
+      @if (selection().length) {
+        <ul class="files" aria-label="Selected files">
+          @for (c of selection(); track c.file.name + c.file.size; let i = $index) {
+            <li [class.invalid]="c.error">
+              <i [class]="c.error ? 'pi pi-times-circle' : 'pi pi-file'" aria-hidden="true"></i>
+              <span class="fname tf-truncate">{{ c.file.name }}</span>
+              <span class="tf-muted">{{ c.file.size | bytes }}</span>
+              @if (c.error) { <span class="err">{{ c.error }}</span> }
+              <button type="button" class="tf-icon-btn" (click)="remove(i)" [attr.aria-label]="'Remove ' + c.file.name"><i class="pi pi-times"></i></button>
+            </li>
+          }
+        </ul>
+        <div class="actions">
+          <input pInputText [formControl]="name" placeholder="Analysis name (optional)" aria-label="Analysis name" class="name" />
+          <button pButton type="button" [disabled]="!validFiles().length || busy()" (click)="upload()" data-testid="upload-button">
+            <i class="pi pi-upload"></i> Upload {{ validFiles().length }} file{{ validFiles().length === 1 ? '' : 's' }}
+          </button>
+          @if (hasInvalid()) { <span class="err">Invalid files will be skipped.</span> }
+        </div>
+      }
+
+      @if (phase() !== 'idle') {
+        <div class="progress" role="status" aria-live="polite">
+          @switch (phase()) {
+            @case ('uploading') {
+              <span>Uploading… {{ uploadPercent() }}%</span>
+              <p-progressbar [value]="uploadPercent()" [showValue]="false" />
+            }
+            @case ('processing') {
+              <span>Processing on the server… {{ job()?.progressPercent ?? 0 }}% · {{ job()?.eventsCount ?? 0 | num }} events</span>
+              <p-progressbar [value]="job()?.progressPercent ?? 0" [showValue]="false" />
+            }
+            @case ('done') {
+              <span class="ok"><i class="pi pi-check-circle"></i> Completed: {{ job()?.eventsCount | num }} events,
+                {{ job()?.tracesCount | num }} traces, {{ job()?.parseErrorsCount | num }} parse problems.
+                <a routerLink="/analyzer" [queryParams]="{ analysis: job()?.analysisId }">Open in Log Analyzer →</a></span>
+            }
+            @case ('failed') {
+              <span class="err"><i class="pi pi-times-circle"></i> {{ job()?.failureReason ?? 'Upload failed. See the notification for details.' }}</span>
+            }
+          }
+        </div>
+      }
+    </section>
+  }
+
+  <section class="tf-panel">
+    <h3>Import history</h3>
+    @if (history.isLoading() && !analyses().length) {
+      @for (i of [1, 2, 3]; track i) { <p-skeleton height="2.4rem" styleClass="mt-2" /> }
+    } @else if (!analyses().length) {
+      <tf-empty-state icon="pi pi-history" title="No imports yet"
+        message="Uploaded analyses appear here. Sample files are available in the samples/ folder of the repository." compact />
+    } @else {
+      <div class="tf-table-wrap">
+        <table class="tf-table" aria-label="Import history">
+          <thead>
+            <tr><th>Name</th><th>Status</th><th>Files</th><th class="num">Size</th><th class="num">Events</th>
+              <th class="num">Traces</th><th class="num">Errors</th><th class="num">Parse problems</th><th>Imported</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (a of analyses(); track a.id) {
+              <tr>
+                <td class="tf-truncate name-col" [pTooltip]="a.name">{{ a.name }}</td>
+                <td>
+                  <tf-status [status]="a.status" />
+                  @if (a.status === 'PROCESSING') { <div class="tf-muted small">{{ a.progressPercent }}%</div> }
+                  @if (a.failureReason) { <div class="err small">{{ a.failureReason }}</div> }
+                </td>
+                <td>
+                  @for (f of a.files; track f.id) {
+                    <div class="small"><span class="tf-mono">{{ f.originalName }}</span> <span class="tf-muted">{{ f.detectedFormat }}</span></div>
+                  }
+                </td>
+                <td class="num">{{ a.totalBytes | bytes }}</td>
+                <td class="num">{{ a.eventsCount | num }}</td>
+                <td class="num">{{ a.tracesCount | num }}</td>
+                <td class="num">{{ a.errorEventsCount | num }}</td>
+                <td class="num">{{ a.parseErrorsCount | num }}</td>
+                <td class="tf-mono small">{{ a.createdAt | ts }}</td>
+                <td class="row-actions">
+                  <a class="tf-icon-btn" pTooltip="Open in Log Analyzer" aria-label="Open in Log Analyzer"
+                     routerLink="/analyzer" [queryParams]="{ analysis: a.id }"><i class="pi pi-eye"></i></a>
+                  <button type="button" class="tf-icon-btn" pTooltip="Reprocess" aria-label="Reprocess"
+                          [disabled]="actionInProgress() === a.id || a.status === 'PROCESSING' || a.status === 'PENDING'"
+                          (click)="reprocess(a)"><i [class]="actionInProgress() === a.id ? 'pi pi-spin pi-spinner' : 'pi pi-replay'"></i></button>
+                  <button type="button" class="tf-icon-btn danger" pTooltip="Delete" aria-label="Delete"
+                          [disabled]="actionInProgress() === a.id || a.status === 'PROCESSING'" (click)="deleteAnalysis(a)"><i class="pi pi-trash"></i></button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p-paginator [first]="page() * 10" [rows]="10" [totalRecords]="history.value()?.totalElements ?? 0" (onPageChange)="onPage($event)" />
+    }
+  </section>
+</div>

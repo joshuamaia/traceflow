@@ -1,0 +1,13 @@
+2026-10-27 09:00:00.001 [main] INFO  com.acme.shop.ShopApplication - Starting ShopApplication v2.3.1
+2026-10-27 09:00:03.412 [main] INFO  com.acme.shop.ShopApplication - Started ShopApplication in 3.41 seconds
+2026-10-27 09:05:11.230 [http-nio-8080-exec-2] INFO  com.acme.shop.web.CheckoutController - Checkout started requestId=rq-5501
+2026-10-27 09:05:11.410 [http-nio-8080-exec-2] ERROR com.acme.shop.billing.InvoiceService - Invoice generation failed requestId=rq-5501
+java.lang.NullPointerException: Cannot invoke "com.acme.shop.billing.TaxRule.rate()" because "rule" is null
+	at com.acme.shop.billing.InvoiceService.computeTax(InvoiceService.java:118)
+	at com.acme.shop.billing.InvoiceService.generate(InvoiceService.java:64)
+	at com.acme.shop.web.CheckoutController.checkout(CheckoutController.java:45)
+2026-10-27 09:05:11.415 [http-nio-8080-exec-2] WARN  com.acme.shop.web.CheckoutController - Checkout aborted requestId=rq-5501 status=500
+2026-10-27 09:07:42.001 [scheduling-1] INFO  com.acme.shop.jobs.CleanupJob - Removed 12 expired carts
+this line is not a log entry and will be reported as a parse problem
+2026-13-40 25:61:00 [scheduling-1] WARN  com.acme.shop.jobs.CleanupJob - Clock skew detected, the invalid timestamp is kept as raw text
+2026-10-27 09:10:00.000 [http-nio-8080-exec-4] INFO  com.acme.shop.web.LoginController - User login password=SuperSecret123 Cookie: SESSION=abc123def

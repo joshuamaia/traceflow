@@ -1,0 +1,26 @@
+# environment
+.env
+
+# backend
+backend/target/
+backend/data/
+*.log.tmp
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+
+# local runtime data
+data/
+
+# extra CA certificates are machine specific
+docker/certs/*
+!docker/certs/README.md
+
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

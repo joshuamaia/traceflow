@@ -1,0 +1,169 @@
+<div class="tf-page">
+  <div class="tf-page-head">
+    <div>
+      <h1>Log Analyzer</h1>
+      <p>Raw log content next to the structured events interpreted by the backend parsers. Select an event to highlight
+        where it came from; lines that could not be parsed are flagged without stopping the analysis.</p>
+    </div>
+    <p-selectbutton [options]="modeOptions" [ngModel]="mode()" (ngModelChange)="setMode($event)" optionLabel="label"
+                    optionValue="value" [allowEmpty]="false" size="small" aria-label="Analyzer source" />
+  </div>
+
+  @if (mode() === 'stored') {
+    <div class="tf-panel tf-filters">
+      <p-select class="grow" [options]="analysisOptions()" [ngModel]="analysisId()" (ngModelChange)="selectAnalysis($event)"
+                optionLabel="label" optionValue="value" placeholder="Select an analysis" [filter]="true" filterBy="label"
+                aria-label="Analysis" size="small" [loading]="analysesList.isLoading()" />
+      <p-select [options]="fileOptions()" [ngModel]="fileId()" (ngModelChange)="selectFile($event)" optionLabel="label"
+                optionValue="value" placeholder="File" aria-label="File" size="small" [disabled]="!fileOptions().length" />
+      @if (selectedFile(); as f) {
+        <span class="tf-muted meta">{{ f.lineCount }} lines · {{ f.sizeBytes | bytes }} · format {{ f.detectedFormat ?? '—' }}</span>
+      }
+    </div>
+    @if (!analysisOptions().length && !analysesList.isLoading()) {
+      <div class="tf-panel">
+        <tf-empty-state icon="pi pi-folder-open" title="No processed analyses"
+          message="Import log files or run a demo scenario, or switch to paste mode to analyze content without storing it.">
+          <div class="tf-page-actions">
+            <a pButton size="small" routerLink="/imports"><i class="pi pi-upload"></i> Import logs</a>
+            <button pButton type="button" size="small" severity="secondary" (click)="setMode('paste')"><i class="pi pi-clipboard"></i> Paste logs</button>
+          </div>
+        </tf-empty-state>
+      </div>
+    }
+  } @else {
+    <div class="tf-panel paste">
+      <textarea pTextarea [formControl]="pasteContent" rows="8" placeholder="Paste Spring Boot, plain text, JSON or JSON Lines logs…"
+                aria-label="Log content" class="tf-mono"></textarea>
+      <div class="tf-filters">
+        <input pInputText [formControl]="pasteFileName" placeholder="File name (optional, e.g. payment-service.log)"
+               aria-label="File name used to infer the service" class="grow" />
+        <button pButton type="button" size="small" severity="secondary" [text]="true" (click)="loadExample()"><i class="pi pi-file"></i> Load example</button>
+        <button pButton type="button" size="small" [disabled]="pasteContent.invalid || analyzing()" (click)="analyzePaste()" data-testid="analyze-button">
+          <i [class]="analyzing() ? 'pi pi-spin pi-spinner' : 'pi pi-play'"></i> Analyze
+        </button>
+      </div>
+      <small class="tf-muted">Content is parsed by the backend and discarded; nothing is stored. Secrets are masked in the result.
+        @if (state.systemInfo(); as info) { Limit {{ info.maxPasteSizeBytes | bytes }}. }</small>
+      @if (live(); as l) {
+        <div class="summary">
+          <span><strong>{{ l.totalEvents }}</strong> events</span>
+          <span><strong>{{ l.totalLines }}</strong> lines</span>
+          <span>format <strong>{{ l.detectedFormat }}</strong></span>
+          <span><strong>{{ l.problems.length }}</strong> parse problems</span>
+          @if (l.services.length) { <span>services: {{ l.services.join(', ') }}</span> }
+          @if (l.correlationIds.length) { <span>{{ l.correlationIds.length }} correlationId(s)</span> }
+        </div>
+      }
+    </div>
+  }
+
+  @if ((mode() === 'stored' && fileId()) || (mode() === 'paste' && live())) {
+    <section class="split">
+      <div class="tf-panel raw">
+        <header class="pane-head">
+          <h3>Raw log</h3>
+          <span class="tf-muted">lines {{ rawStart() }}–{{ rawStart() + rawLines().length - 1 }} of {{ rawTotal() }}</span>
+          <span class="spacer"></span>
+          <button type="button" class="tf-icon-btn" aria-label="Previous lines" [disabled]="rawStart() <= 1" (click)="shiftWindow(-1)"><i class="pi pi-chevron-up"></i></button>
+          <button type="button" class="tf-icon-btn" aria-label="Next lines" [disabled]="rawStart() + rawLines().length > rawTotal()" (click)="shiftWindow(1)"><i class="pi pi-chevron-down"></i></button>
+        </header>
+        <div class="code" #rawPane role="log" aria-label="Raw log lines">
+          @if (mode() === 'stored' && lines.isLoading() && !rawLines().length) {
+            <p-skeleton height="20rem" />
+          }
+          @for (l of rawLines(); track l.number) {
+            <div class="line" [attr.data-line]="l.number" [class.hl]="isHighlighted(l.number)" [class.problem]="l.problem">
+              <span class="ln">{{ l.number }}</span><span class="txt">@for (t of l.tokens; track $index) {<span [class]="t.cls">{{ t.text }}</span>}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="tf-panel parsed">
+        <header class="pane-head">
+          <h3>Parsed events</h3>
+          <span class="tf-muted">{{ totalEvents() }}</span>
+          <span class="spacer"></span>
+          <button type="button" class="tf-icon-btn" pTooltip="Export filtered events (CSV)" aria-label="Export CSV" (click)="exportCsv()"><i class="pi pi-file-export"></i></button>
+        </header>
+        <div class="tf-filters">
+          <input pInputText [formControl]="search" placeholder="Search message or id…" aria-label="Search events" class="grow" type="search" />
+          <p-multiselect [options]="levelOptions" [ngModel]="levels()" (ngModelChange)="setLevels($event)" optionLabel="label"
+                         optionValue="value" placeholder="Levels" display="chip" size="small" aria-label="Level filter" />
+        </div>
+        <ul class="events" aria-label="Parsed events">
+          @for (e of viewEvents(); track e.key) {
+            <li [class.sel]="selected()?.key === e.key" [class.err]="e.level === 'ERROR' || e.level === 'FATAL'" tabindex="0"
+                (click)="selectEvent(e)" (keydown.enter)="selectEvent(e)">
+              <div class="ev-meta">
+                <tf-level [level]="e.level" />
+                <span class="tf-mono tf-muted">L{{ e.lineStart }}{{ e.lineEnd > e.lineStart ? '–' + e.lineEnd : '' }}</span>
+                @if (e.service) { <span class="svc">{{ e.service }}</span> }
+                @if (e.correlationId) { <span class="tf-mono cid">{{ e.correlationId }}</span> }
+                <span class="tf-mono tf-muted ts">{{ e.timestamp | ts: false }}</span>
+              </div>
+              <div class="ev-msg">{{ e.message }}</div>
+              @if (e.exceptionClass) { <div class="ev-exc"><i class="pi pi-bolt"></i> {{ e.exceptionClass }}</div> }
+            </li>
+          } @empty {
+            <li class="none">No events match the filters.</li>
+          }
+        </ul>
+        @if (mode() === 'stored' && totalEvents() > 100) {
+          <p-paginator [first]="eventsPage() * 100" [rows]="100" [totalRecords]="totalEvents()" (onPageChange)="onEventsPage($event)" />
+        }
+      </div>
+    </section>
+
+    @if (selectedFull(); as e) {
+      <section class="tf-panel detail" aria-live="polite">
+        <header class="pane-head">
+          <h3>Event detail</h3>
+          <span class="spacer"></span>
+          @if (e.traceRef) { <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/traces', e.traceRef]"><i class="pi pi-sitemap"></i> Open trace</a> }
+          <button type="button" class="tf-icon-btn" aria-label="Close" (click)="selected.set(null); selectedFull.set(null)"><i class="pi pi-times"></i></button>
+        </header>
+        <div class="detail-grid">
+          <dl class="fields">
+            @for (f of fieldList(e); track f[0]) {
+              <dt>{{ f[0] }}</dt>
+              <dd class="tf-mono" [class.tf-muted]="f[1] === null">{{ f[1] ?? '—' }}
+                @if (f[0] === 'CorrelationId' && f[1]) { <tf-copy [value]="e.correlationId" label="correlationId" /> }
+                @if (f[0] === 'TraceId' && f[1]) { <tf-copy [value]="e.traceId" label="traceId" /> }
+              </dd>
+            }
+          </dl>
+          <div class="right">
+            <h4>Message</h4>
+            <p class="msg">{{ e.message }}</p>
+            @if (attributeList(e).length) {
+              <h4>Other fields</h4>
+              <dl class="fields attrs">
+                @for (a of attributeList(e); track a[0]) { <dt>{{ a[0] }}</dt><dd class="tf-mono">{{ a[1] }}</dd> }
+              </dl>
+            }
+            @if (e.stackTrace) { <tf-stack-trace [stackTrace]="e.stackTrace" /> }
+          </div>
+        </div>
+      </section>
+    }
+
+    <section class="tf-panel">
+      <h3>Parse problems ({{ problems().length }})</h3>
+      @if (!problems().length) {
+        <p class="tf-muted">Every line was interpreted.</p>
+      } @else {
+        <ul class="problems">
+          @for (p of problems(); track $index) {
+            <li tabindex="0" (click)="goToLine(p.lineNumber)" (keydown.enter)="goToLine(p.lineNumber)">
+              <span class="tf-badge" [class.level-error]="p.severity === 'ERROR'" [class.level-warn]="p.severity === 'WARNING'">{{ p.severity }}</span>
+              <span class="tf-mono">line {{ p.lineNumber }}</span>
+              <span>{{ p.reason }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>
